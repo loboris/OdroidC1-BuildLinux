@@ -1,0 +1,189 @@
+#!/bin/bash
+
+# ******************************
+# Install minimal lxde desktop *
+# ******************************
+
+if [ "$(id -u)" != "0" ]; then
+	echo "Script must be run as root !"
+	exit 0
+fi
+
+echo ""
+date
+echo -e "\033[36m======================="
+echo -e "Installing LXDE Desktop"
+echo -e "=======================\033[37m"
+echo ""
+
+# Check if we have enough disk space.
+S=`df / | tail -n 1 | awk '{printf $4}' | sed s/[G,M,K]//g`
+if [ "$S" -le "500000" ]; then
+	echo "We need at least 500MB free to perform minimal desktop instalation"
+	echo "Have you resized your partition (fs_resize)?"
+	exit 0
+fi
+
+# SET USER NAME !!
+_user="odroid"
+
+logfile="lxde_install.log"
+#logfile=/dev/stdout
+
+#_auto=""
+_auto="-y -q"
+_DST=`lsb_release -si`
+_REL=`lsb_release -sc`
+
+
+echo "Package update..."
+apt-get $_auto update >> $logfile
+echo "Package upgrade..."
+apt-get $_auto upgrade >> $logfile
+echo ""
+
+echo "$_DST - $_REL, Installing LXDE DESKTOP..."
+echo "$_DST - $_REL, Installing LXDE DESKTOP..." > $logfile
+
+# === Install base packages =======================================================================================================================================================
+echo "  installing base packages, please wait..."
+if [ "${_REL}" = "wheezy" ]; then
+    apt-get $_auto install pulseaudio pulseaudio-module-x11 pulseaudio-utils alsa-base alsa-oss alsa-utils alsa-tools libasound2 aml-libs --no-install-recommends >> $logfile
+else
+    apt-get $_auto install pulseaudio pulseaudio-module-x11 pulseaudio-utils alsa-base alsa-oss alsa-utils alsa-tools libasound2-data aml-libs --no-install-recommends >> $logfile
+fi
+apt-get clean
+
+# === Install desktop =============================================================================================================================================================
+echo "  installing xserver & lxde desktop, please wait..."
+if [ "${_REL}" = "trusty" ]; then
+  apt-get $_auto install gstreamer1.0-pulseaudio mali-x11 xserver-xorg-video-mali >> $logfile
+  apt-get clean
+  apt-get $_auto install mesa-utils mesa-utils-extra glmark2-es2 >> $logfile
+  apt-get clean
+  apt-get $_auto install lubuntu-core --no-install-recommends >> $logfile
+  apt-get clean
+  apt-get $_auto install synaptic lxappearance lxterminal leafpad pavucontrol dmz-cursor-theme metacity metacity-themes dconf-editor software-properties-gtk lxtask gnome-calculator xarchiver evince geany lxsession-edit update-notifier gnome-themes-standard >> $logfile
+  apt-get clean
+else
+  apt-get $_auto install xinit xserver-xorg lxde lightdm lightdm-gtk-greeter policykit-1 --no-install-recommends >> $logfile
+  apt-get clean
+
+  if [ "${_DST}" = "Ubuntu" ] ; then
+      apt-get $_auto install humanity-icon-theme --no-install-recommends >> $logfile
+  fi
+  apt-get $_auto install synaptic pavucontrol software-properties-gtk lxtask galculator policykit-1-gnome gksu --no-install-recommends >> $logfile
+  apt-get clean
+fi
+
+# === Install network packages & internet browser =================================================================================================================================
+# === you don't have to install internet browser, you can save ~100MB ===
+
+echo "  installing network packages, please wait..."
+if [ "${_DST}" = "Ubuntu" ] ; then
+    apt-get $_auto install firefox gvfs-fuse gvfs-backends --no-install-recommends >> $logfile
+else
+    apt-get $_auto install iceweasel gvfs-fuse gvfs-backends --no-install-recommends >> $logfile
+fi
+apt-get clean
+
+if [ -f /etc/X11/xorg.conf ]; then
+  cp /etc/X11/xorg.conf /usr/local/bin/xorg.conf
+fi
+apt-get $_auto remove xserver-xorg --purge >> $logfile
+if [ "${_REL}" = "trusty" ]; then
+  apt-get $_auto install xserver-xorg lubuntu-core >> $logfile
+else
+  apt-get $_auto install xserver-xorg >> $logfile
+fi
+apt-get clean
+if [ -f /usr/local/bin/xorg.conf ]; then
+  mv /usr/local/bin/xorg.conf /etc/X11/xorg.conf
+fi
+
+
+# === Configuration ===============================================================================================================================================================
+echo ""
+echo "Configuring desktop..."
+
+if [ -f /etc/X11/Xwrapper.config ]; then
+    cat /etc/X11/Xwrapper.config | sed s/"allowed_users=console"/"allowed_users=anybody"/g > /tmp/_xwrap
+    mv /tmp/_xwrap /etc/X11/Xwrapper.config
+fi
+
+if [ "${_REL}" = "trusty" ]; then
+    cat /etc/xdg/lxsession/Lubuntu/desktop.conf | sed s/"windows_manager\/command=openbox"/"windows_manager\/command=metacity"/g > /tmp/_desktop.conf
+    mv /tmp/_desktop.conf /etc/xdg/lxsession/Lubuntu/desktop.conf
+
+    echo "  configuring file manager"
+    cat /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf | sed s/"mount_on_startup=1"/"mount_on_startup=0"/g > /tmp/_pcmanfm.conf
+    mv /tmp/_pcmanfm.conf /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf
+    cat /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf | sed s/"mount_removable=1"/"mount_removable=0"/g > /tmp/_pcmanfm.conf
+    mv /tmp/_pcmanfm.conf /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf
+
+    mv /wallpaper.png /usr/share/lubuntu/wallpapers/lubuntu-default-wallpaper.png > /dev/null 2>&1
+
+    if [ -f /etc/lightdm/lightdm-gtk-greeter.conf ]; then
+	cat /etc/lightdm/lightdm-gtk-greeter.conf | sed "/background=\/usr/d" > /tmp/_greet
+	mv /tmp/_greet /etc/lightdm/lightdm-gtk-greeter.conf
+	cat /etc/lightdm/lightdm-gtk-greeter.conf | sed '/\[greeter\]/abackground=\/usr\/share\/lubuntu\/wallpapers\/lubuntu-default-wallpaper.png' > /tmp/_greet
+	mv /tmp/_greet /etc/lightdm/lightdm-gtk-greeter.conf
+    fi
+
+    if [ -f /boot/boot.ini ]; then
+	cat /boot/boot.ini | sed s/"setenv m_bpp \"16\""/"setenv m_bpp \"32\""/g > /tmp/_bootini
+	mv /tmp/_bootini /boot/boot.ini
+	cat /boot/boot.ini | sed s/"setenv vpu \"0\""/"setenv vpu \"1\""/g > /tmp/_bootini
+	mv /tmp/_bootini /boot/boot.ini
+    fi
+
+    if [ -f /media/boot/boot.ini ]; then
+	cat /media/boot/boot.ini | sed s/"setenv m_bpp \"16\""/"setenv m_bpp \"32\""/g > /tmp/_bootini
+	mv /tmp/_bootini /media/boot/boot.ini
+	cat /media/boot/boot.ini | sed s/"setenv vpu \"0\""/"setenv vpu \"1\""/g > /tmp/_bootini
+	mv /tmp/_bootini /media/boot/boot.ini
+    fi
+else
+    if [ -f /etc/lightdm/lightdm-gtk-greeter.conf ]; then
+	cat /etc/lightdm/lightdm-gtk-greeter.conf | sed "/background=\/usr/d" > /tmp/_greet
+	mv /tmp/_greet /etc/lightdm/lightdm-gtk-greeter.conf
+	cat /etc/lightdm/lightdm-gtk-greeter.conf | sed '/\[greeter\]/abackground=\/usr\/share\/lxde\/wallpapers\/lxde_blue.jpg' > /tmp/_greet
+	mv /tmp/_greet /etc/lightdm/lightdm-gtk-greeter.conf
+    fi
+fi
+
+#*********************
+# ** CONFIGURE SOUND
+#*********************
+cat > /etc/asound.conf << _EOF_
+pcm.!default {
+  type plug
+  slave {
+    pcm "hw:0,1"
+  }
+}
+ctl.!default {
+  type hw
+  card 0
+}
+_EOF_
+
+if [ -f /etc/pulse/default.pa ]; then
+    cat /etc/pulse/default.pa | sed s/"#load-module module-alsa-sink"/"load-module module-alsa-sink"/g > /tmp/default.pa
+    mv /tmp/default.pa /etc/pulse/default.pa
+    cat /etc/pulse/default.pa | sed s/"#load-module module-alsa-source device=hw:1,0"/"load-module module-alsa-source device=hw:0,1"/g > /tmp/default.pa
+    mv /tmp/default.pa /etc/pulse/default.pa
+fi
+
+
+usermod -a -G adm,dialout,cdrom,audio,dip,video,plugdev,netdev,fuse $_user
+
+chown -R $_user:$_user /home/$_user
+
+echo ""
+echo "**********************************************"
+echo "* LXDE DESKTOP INSTALLED, please REBOOT now! *"
+echo "**********************************************"
+date
+echo ""
+

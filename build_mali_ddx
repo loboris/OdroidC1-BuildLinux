@@ -1,0 +1,54 @@
+#!/bin/bash
+
+if [ "$(id -u)" != "0" ]; then
+	echo "Script must be run as root !"
+	exit 0
+fi
+
+echo ""
+date
+echo -e "\033[36m========================"
+echo -e "Building mali ddx driver"
+echo -e "========================\033[37m"
+echo ""
+
+logfile="build_mali.log"
+#logfile=/dev/stdout
+
+#_auto=""
+_auto="-y -q"
+_DST=`lsb_release -si`
+_REL=`lsb_release -sc`
+
+
+echo "Package update..."
+apt-get $_auto update >> $logfile
+echo "Package upgrade..."
+apt-get $_auto upgrade >> $logfile
+echo ""
+
+mkdir -p /opt/maliddx
+cd /opt/maliddx
+
+echo "Installing packages"
+apt-get $_auto install gstreamer1.0-pulseaudio mali-x11 xserver-xorg-video-mali >> $logfile
+apt-get $_auto install git build-essential pkgconf xorg-server-source x11proto-core-dev x11proto-dmx-dev xserver-xorg-dev xutils-dev >> $logfile
+apt-get clean
+
+git clone https://github.com/mdrjr/c1_mali_ddx
+
+cd c1_mali_ddx
+
+LDFLAGS+=" -L/usr/lib/mali-egl"
+
+./configure >> $logfile
+make >> $logfile
+
+if [ -f /opt/maliddx/c1_mali_ddx/src/mali_drv.la ] && [ -f /opt/maliddx/c1_mali_ddx/src/.libs/mali_drv.so ]; then
+  mkdir -p /usr/local/bin/mali_ddx/${_REL}
+  cp /opt/maliddx/c1_mali_ddx/src/mali_drv.la /usr/local/bin/mali_ddx/${_REL}
+  cp /opt/maliddx/c1_mali_ddx/src/.libs/mali_drv.so /usr/local/bin/mali_ddx/${_REL}
+  echo "Mali drivers CREATED in /usr/local/bin/mali_ddx/$_REL."
+else
+  echo "Mali drivers NOT crated."
+fi

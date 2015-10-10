@@ -1,0 +1,24 @@
+#!/bin/bash
+
+for I in eina eet evas embryo ecore eio edje efreet e_dbus \
+evas_generic_loaders ethumb eeze emotion elementary; do \
+  wget http://download.enlightenment.org/releases/$I-1.7.10.tar.gz; \
+done
+
+wget http://download.enlightenment.org/releases/enlightenment-0.17.6.tar.gz
+
+
+export PATH=/usr/local/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+export CFLAGS="-O3 -fvisibility=hidden -ffast-math"
+
+for I in eina eet evas embryo ecore eio edje efreet e_dbus \
+evas_generic_loaders ethumb eeze emotion elementary; do \
+  tar zxf $I-1.7.10.tar.gz; \
+  cd $I-1.7.10; \
+  ./configure --disable-gnutls && make && sudo make install; \
+  cd ..; \
+done
+
+sudo ldconfig

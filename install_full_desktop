@@ -1,0 +1,288 @@
+#!/bin/bash
+
+# **************************************
+# Install typical lubuntu/lxde desktop *
+# **************************************
+
+if [ "$(id -u)" != "0" ]; then
+	echo "Script must be run as root !"
+	exit 0
+fi
+
+# Check if we have enough disk space.
+S=`df / | tail -n 1 | awk '{printf $4}' | sed s/[G,M,K]//g`
+if [ "$S" -le "800000" ]; then
+	echo "We need at least 800MB free to perform desktop instalation"
+	echo "Have you resized your Partition (fs_resize)?"
+	exit 0
+fi
+
+# SET USER NAME !!
+_user="odroid"
+
+logfile="dinstall.log"
+#logfile=/dev/stdout
+
+#_auto=""
+_auto="-y -q"
+_DST=`lsb_release -si`
+_REL=`lsb_release -sc`
+
+if [ "${_REL}" = "wheezy" ] || [ "${_DST}" = "Kali" ]; then
+    echo "Not supported on ${_DST}-${_REL}, please install minimal desktop"
+    echo "sudo install_mini_desktop"
+    exit 0
+fi
+
+
+echo "$_DST - $_REL, Installing DESKTOP..."
+echo "$_DST - $_REL, Installing DESKTOP..." > $logfile
+
+
+if [ "${_REL}" = "jessie" ] ; then
+    echo "APT::Default-Release \"jessie\";" >> /etc/apt/apt.conf.d/70debconf
+    echo "deb http://ports.ubuntu.com/ubuntu-ports/ trusty main universe" >> /etc/apt/sources.list
+    apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 40976EAF437D05B5 3B4FE6ACC0B21F32 >> $logfile
+fi
+
+echo "Package update..."
+apt-get $_auto update >> $logfile
+echo "Package upgrade..."
+apt-get $_auto upgrade >> $logfile
+echo ""
+
+if [ "${_DST}" = "Ubuntu" ] ; then
+    echo "  installing base packages, please wait..."
+
+    if [ "${_REL}" = "vivid" ] ; then
+        apt-get $_auto install policykit-1 >> $logfile
+	apt-get $_auto install pulseaudio pulseaudio-module-x11 pulseaudio-utils gstreamer1.0-pulseaudio alsa-base alsa-oss alsa-utils alsa-tools libasound2-data aml-libs mali-x11 xserver-xorg-video-mali >> $logfile
+        echo "  installing mate desktop, please wait..."
+        apt-get $_auto install mate-desktop-environment language-selector-gnome >> $logfile
+	apt-get clean
+	echo "  installing internet packages, please wait..."
+	apt-get $_auto install firefox gksu mesa-utils mesa-utils-extra glmark2-es2 gvfs gvfs-fuse gvfs-backends >> $logfile
+	apt-get clean
+	echo "  installing multimedia, please wait..."
+	apt-get $_auto install libgnutls26 kodi gnome-mplayer >> $logfile
+	apt-get clean
+    else
+      if [ "${_REL}" = "precise" ] ; then
+	apt-get $_auto install pulseaudio pulseaudio-module-x11 pulseaudio-utils alsa-base alsa-oss alsa-utils alsa-tools libasound2 aml-libs >> $logfile
+      else
+	apt-get $_auto install pulseaudio pulseaudio-module-x11 pulseaudio-utils gstreamer1.0-pulseaudio alsa-base alsa-oss alsa-utils alsa-tools libasound2-data aml-libs mali-x11 xserver-xorg-video-mali >> $logfile
+      fi
+      apt-get clean
+      echo "  installing lubuntu desktop, please wait..."
+      apt-get $_auto install lubuntu-core --no-install-recommends >> $logfile
+      apt-get clean
+      echo "  installing more packages, please wait..."
+      if [ "${_REL}" = "precise" ] ; then
+	apt-get $_auto install synaptic lxappearance lxterminal leafpad pavucontrol dmz-cursor-theme metacity metacity-themes gconf-editor software-properties-gtk lxtask galculator xarchiver >> $logfile
+      else
+	if [ "${_REL}" = "trusty" ] ; then
+	  apt-get $_auto install synaptic lxappearance lxterminal leafpad pavucontrol dmz-cursor-theme metacity metacity-themes dconf-editor software-properties-gtk lxtask gnome-calculator xarchiver >> $logfile
+	else
+	  apt-get $_auto install synaptic lxappearance lxterminal leafpad pavucontrol dmz-cursor-theme dconf-editor software-properties-gtk lxtask gnome-calculator xarchiver >> $logfile
+	  apt-get $_auto install -t trusty metacity metacity-themes >> $logfile
+	  apt-mark hold metacity* >> $logfile
+	fi
+      fi
+      apt-get clean
+      echo "  installing internet packages, please wait..."
+      apt-get $_auto install firefox gksu evince mesa-utils mesa-utils-extra glmark2-es2 gvfs gvfs-fuse gvfs-backends >> $logfile
+      apt-get clean
+      if [ ! "${_REL}" = "precise" ] ; then
+	  echo "  installing multimedia, please wait..."
+	  apt-get $_auto install libgnutls26 kodi gnome-mplayer >> $logfile
+	  apt-get clean
+      fi
+    fi
+    #echo "  installing office tools, please wait..."
+    #apt-get $_auto install caligra systemsettings >> $logfile
+    #apt-get clean
+else
+    echo "please wait..."
+    if [ "${_REL}" = "jessie" ] ; then
+	echo "  installing base packages, please wait..."
+	apt-get $_auto install pulseaudio pulseaudio-module-x11 pulseaudio-utils gstreamer1.0-pulseaudio alsa-base alsa-oss alsa-utils alsa-tools libasound2-data aml-libs mali-x11 xserver-xorg-video-mali >> $logfile
+	apt-get clean
+	echo "  installing lxde desktop, please wait..."
+	apt-get $_auto install lxde lightdm --no-install-recommends >> $logfile
+	apt-get clean
+	echo "  installing more packages, please wait..."
+	apt-get $_auto install synaptic lxappearance lxterminal leafpad pavucontrol dmz-cursor-theme dconf-editor software-properties-gtk lxtask gnome-calculator xarchiver >> $logfile
+        apt-get $_auto install -t trusty metacity metacity-themes >> $logfile
+        apt-mark hold metacity* >> $logfile
+	apt-get clean
+	echo "  installing internet packages, please wait..."
+	apt-get $_auto install iceweasel gksu evince mesa-utils mesa-utils-extra gvfs gvfs-fuse gvfs-backends >> $logfile
+	apt-get clean
+	echo "  installing multimedia, please wait..."
+	apt-get $_auto install libgnutls26 kodi
+	apt-get clean
+    else
+	echo "  installing base packages, please wait..."
+	apt-get $_auto install pulseaudio pulseaudio-module-x11 pulseaudio-utils alsa-base alsa-oss alsa-utils alsa-tools libasound2 aml-libs mali-x11 xserver-xorg-video-mali >> $logfile
+	apt-get clean
+	echo "  installing lxde desktop, please wait..."
+	apt-get $_auto install lxde lightdm >> $logfile
+	apt-get clean
+	echo "  installing more packages, please wait..."
+	apt-get $_auto install synaptic pavucontrol dmz-cursor-theme metacity metacity-themes software-properties-gtk lxtask gnome-calculator xarchiver >> $logfile
+	apt-get clean
+	echo "  installing internet packages, please wait..."
+	apt-get $_auto install iceweasel gksu evince mesa-utils gvfs gvfs-fuse gvfs-backends >> $logfile
+	apt-get clean
+	echo "  installing multimedia, please wait..."
+	apt-get $_auto install ttf-dejavu libshairplay gnome-mplayer >> $logfile
+	apt-get clean
+	#kodi
+    fi
+    apt-get clean
+fi
+
+
+echo ""
+echo "Configuring desktop..."
+if [ ! "${_REL}" = "precise" ] && [ ! "${_REL}" = "vivid" ]; then
+    if [ -f /etc/X11/xorg.conf ]; then
+	_ok=`cat /etc/X11/xorg.conf | grep IgnoreABI`
+	if [ "${_ok}" = "" ] ; then
+	    echo "  patching xorg.conf"
+	    cat /etc/X11/xorg.conf | sed '/Section "ServerFlags"/a\        Option          "IgnoreABI"     "true"' > /tmp/_xorg
+	    mv /tmp/_xorg /etc/X11/xorg.conf
+	else
+	    echo "  xorg.conf allready pached."
+	fi
+    else
+	echo "  xorg.conf NOT FOUND !"
+    fi
+else
+    # we don't use mali drivers in precise & vivid
+    if [ -f /etc/X11/xorg.conf ]; then
+        mv /etc/X11/xorg.conf /etc/X11/xorg.conf.bad
+    fi
+    # and we use only 16bpp colors
+    if [ -f /boot/boot.ini ]; then
+	cat /boot/boot.ini | sed s/"setenv m_bpp \"32\""/"#setenv m_bpp \"32\""/g > /tmp/_bootini
+	mv /tmp/_bootini /boot/boot.ini
+	cat /boot/boot.ini | sed s/"#setenv m_bpp \"16\""/"setenv m_bpp \"16\""/g > /tmp/_bootini
+	mv /tmp/_bootini /boot/boot.ini
+	cat /boot/boot.ini | sed s/"# setenv m_bpp \"16\""/"setenv m_bpp \"16\""/g > /tmp/_bootini
+	mv /tmp/_bootini /boot/boot.ini
+    fi
+    if [ -f /media/boot/boot.ini ]; then
+	cat /media/boot/boot.ini | sed s/"setenv m_bpp \"32\""/"#setenv m_bpp \"32\""/g > /tmp/_bootini
+	mv /tmp/_bootini /media/boot/boot.ini
+	cat /media/boot/boot.ini | sed s/"#setenv m_bpp \"16\""/"setenv m_bpp \"16\""/g > /tmp/_bootini
+	mv /tmp/_bootini /media/boot/boot.ini
+	cat /media/boot/boot.ini | sed s/"# setenv m_bpp \"16\""/"setenv m_bpp \"16\""/g > /tmp/_bootini
+	mv /tmp/_bootini /media/boot/boot.ini
+    fi
+fi
+
+
+if [ ! "${_REL}" = "vivid" ]; then
+  # Configure metacity & pcmanfm
+  echo "  configuring windows manager"
+  #gsettings set org.gnome.desktop.wm.preferences theme Lubuntu-dark-panel
+
+  if [ "${_DST}" = "Ubuntu" ] ; then
+      if [ "${_REL}" = "precise" ] ; then
+	  cat /etc/xdg/lxsession/Lubuntu/desktop.conf | sed s/"window_manager=openbox-lubuntu"/"window_manager=metacity"/g > /tmp/_desktop.conf
+	  mv /tmp/_desktop.conf /etc/xdg/lxsession/Lubuntu/desktop.conf
+      else
+	  cat /etc/xdg/lxsession/Lubuntu/desktop.conf | sed s/"windows_manager\/command=openbox"/"windows_manager\/command=metacity"/g > /tmp/_desktop.conf
+	  mv /tmp/_desktop.conf /etc/xdg/lxsession/Lubuntu/desktop.conf
+      fi
+      if [ "${_REL}" = "utopic" ] ; then
+	cat /usr/share/glib-2.0/schemas/org.gnome.desktop.wm.preferences.gschema.xml | sed s/"\      <default>'Adwaita'<\/default>"/"\      <default>'Lubuntu-dark-panel'<\/default>"/g > /tmp/_schema
+	mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.desktop.wm.preferences.gschema.xml
+
+	_ok=`cat /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml | grep "<default>true<" | wc -l`
+	if [ $_ok -eq 1 ]; then
+	  cat /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml | sed s/"<default>false<\/default>"/"<default>xxxx<\/default>"/g > /tmp/_schema
+	  mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml
+	  cat /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml | sed s/"<default>true<\/default>"/"<default>false<\/default>"/g > /tmp/_schema
+	  mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml
+	  cat /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml | sed s/"<default>xxxx<\/default>"/"<default>true<\/default>"/g > /tmp/_schema
+	  mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml
+	fi
+      else
+	cat /usr/share/glib-2.0/schemas/org.gnome.desktop.wm.preferences.gschema.xml | sed s/"\      <default>'Adwaita'<\/default>"/"\      <default>'Metabox'<\/default>"/g > /tmp/_schema
+	mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.desktop.wm.preferences.gschema.xml
+      fi
+
+      echo "  configuring file manager"
+      cat /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf | sed s/"mount_on_startup=1"/"mount_on_startup=0"/g > /tmp/_pcmanfm.conf
+      mv /tmp/_pcmanfm.conf /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf
+      cat /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf | sed s/"mount_removable=1"/"mount_removable=0"/g > /tmp/_pcmanfm.conf
+      mv /tmp/_pcmanfm.conf /etc/xdg/pcmanfm/lubuntu/pcmanfm.conf
+
+      mv /wallpaper.png /usr/share/lubuntu/wallpapers/lubuntu-default-wallpaper.png > /dev/null 2>&1
+  else
+      cat /etc/xdg/lxsession/LXDE/desktop.conf | sed s/"window_manager=openbox-lxde"/"window_manager=metacity"/g > /tmp/_desktop.conf
+      mv /tmp/_desktop.conf /etc/xdg/lxsession/LXDE/desktop.conf
+
+      cat /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml | sed s/"<default>false<\/default>"/"<default>xxxx<\/default>"/g > /tmp/_schema
+      mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml
+      cat /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml | sed s/"<default>true<\/default>"/"<default>false<\/default>"/g > /tmp/_schema
+      mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml
+      cat /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml | sed s/"<default>xxxx<\/default>"/"<default>true<\/default>"/g > /tmp/_schema
+      mv /tmp/_schema /usr/share/glib-2.0/schemas/org.gnome.metacity.gschema.xml
+  fi
+fi
+
+echo "  configuring sound"
+#*********************
+# ** CONFIGURE SOUND
+#*********************
+cat > /etc/asound.conf << _EOF_
+pcm.!default {
+  type plug
+  slave {
+    pcm "hw:0,1"
+  }
+}
+ctl.!default {
+  type hw
+  card 0
+}
+_EOF_
+
+if [ -f /etc/pulse/default.pa ]; then
+    cat /etc/pulse/default.pa | sed s/"#load-module module-alsa-sink"/"load-module module-alsa-sink"/g > /tmp/default.pa
+    mv /tmp/default.pa /etc/pulse/default.pa
+    cat /etc/pulse/default.pa | sed s/"#load-module module-alsa-source device=hw:1,0"/"load-module module-alsa-source device=hw:0,1"/g > /tmp/default.pa
+    mv /tmp/default.pa /etc/pulse/default.pa
+fi
+
+#if [ "${_REL}" = "utopic" ] ; then
+#cat > /usr/bin/xbmc << _EOF_
+##!/bin/sh
+#exit 0
+#_EOF_
+#fi
+
+usermod -a -G adm,dialout,cdrom,audio,dip,video,plugdev,netdev,fuse $_user
+
+
+# START KODI IF WE SELECT openbox AT LOGIN
+#mkdir -p /home/$_user/.config/openbox > /dev/null 2>&1
+#if [ ! -f /home/$_user/.config/openbox/autostart ]; then
+#cat >> /home/$_user/.config/openbox/autostart << _EOF_
+#kodi
+#openbox --exit
+#_EOF_
+#fi
+
+chown -R $_user:$_user /home/$_user
+
+
+echo ""
+echo "*****************************************"
+echo "* DESKTOP INSTALLED, please REBOOT now! *"
+echo "*****************************************"
+echo ""
+
